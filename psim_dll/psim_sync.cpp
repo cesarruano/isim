@@ -41,7 +41,7 @@ __stdcall void simuser (double t, double delt, double *in, double *out)
     static double next_stop = 0.0;//next stop to sync with other processes
     static bool first_time = false;
     
-    static T_ISIM_ALL_SIGNALS * isim_pt;//pointer to the shared memory 
+    static volatile T_ISIM_ALL_SIGNALS * isim_pt;//pointer to the shared memory 
 	
 	static double cfg;
 	static int i;
@@ -91,7 +91,7 @@ __stdcall void simuser (double t, double delt, double *in, double *out)
 		so variables remain initialized after first execution, time is used to reinitialize
 		everytime the simulation starts again.*/
 		wait_result = WaitForSingleObject(h_sh_mutex, INFINITE);
-			isim_pt = (T_ISIM_ALL_SIGNALS *)pt_sh_buff;
+			isim_pt = (volatile T_ISIM_ALL_SIGNALS *)pt_sh_buff;
 			next_stop = 0.0;
 			isim_pt->sync.t = 0.0;
 		ReleaseMutex(h_sh_mutex);
@@ -105,7 +105,7 @@ __stdcall void simuser (double t, double delt, double *in, double *out)
 		
         isim_pt->pflags[process_slot].w= 1.0;
 		isim_pt->pflags[process_slot].r= 0.0;
-		FlushViewOfFile(isim_pt, MAX_BUFF_SIZE);
+		FlushViewOfFile(pt_sh_buff, MAX_BUFF_SIZE);
 		
 		ReleaseMutex(h_sh_mutex);
 		
@@ -121,7 +121,7 @@ __stdcall void simuser (double t, double delt, double *in, double *out)
 					shm_to_vars();
 					
 					isim_pt->pflags[process_slot].r= 1.0;
-					FlushViewOfFile(isim_pt, MAX_BUFF_SIZE);
+					FlushViewOfFile(pt_sh_buff, MAX_BUFF_SIZE);
 				}
 			ReleaseMutex(h_sh_mutex);
         }
@@ -136,7 +136,7 @@ __stdcall void simuser (double t, double delt, double *in, double *out)
 					isim_pt->pflags[process_slot].r= 0.0;
 					//load next stop
 					next_stop = isim_pt->sync.t;
-					FlushViewOfFile(isim_pt, MAX_BUFF_SIZE);
+					FlushViewOfFile(pt_sh_buff, MAX_BUFF_SIZE);
 
 				}
 			ReleaseMutex(h_sh_mutex);

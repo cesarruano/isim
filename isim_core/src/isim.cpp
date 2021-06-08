@@ -22,6 +22,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <string>
+#include <vector>
 
 #include "isim_basic.hpp"
 
@@ -39,7 +40,7 @@ HANDLE h_mutex; //handle to the shared mutex
 LPCTSTR pt_sh_buff;//pointer to the shared memory buffer
 DWORD wait_result; 
 
-double * bp;//pointer to shared memory as double array
+volatile double * bp;//pointer to shared memory as double array
 
 bool all_write;//true if all active processes have already written their signals
 bool all_read;//true if all active processes have already read their signals
@@ -151,8 +152,8 @@ int main(int argc, char **argv, char **envp)
 	if(create_shared_resources() != 0){cout << "Could not create shared memory."<<endl;return 2;}
 	
 	wait_result = WaitForSingleObject(h_mutex, INFINITE);
-		bp = (double *)pt_sh_buff;
-		memset(bp, 0, mem_size);
+		bp = (volatile double *)pt_sh_buff;
+		memset((void *)pt_sh_buff, 0, mem_size);
 		cout << "\r" << "t = " << next_sync;
 	ReleaseMutex(h_mutex);
 	
@@ -163,22 +164,17 @@ int main(int argc, char **argv, char **envp)
 		all_write = false;
 		while(!all_write){//sync writes
 			//Mutex to wait for writes
-			//cout << bp[3] << " "<< bp[4] << " " <<bp[5] << " " <<bp[6]  << endl;
 			wait_result = WaitForSingleObject(h_mutex, INFINITE);
 				all_write = true;
 				for(i=0;i<num_procs;i++){
-					//cout << i << " p";
-					//cout << GetW(i) << endl;
-					//cout << (positions[i]*2+3) << endl;
 					all_write = all_write && ((GetW(i))==1.0);
-					//cout << all_write <<  endl;
 				}
 				if(all_write == true){
 					SetGR(0.0);
 					SetGW(1.0);
 					//will break
 				}
-				FlushViewOfFile(bp, mem_size);
+				FlushViewOfFile(pt_sh_buff, mem_size);
 			ReleaseMutex(h_mutex);
 		}
 		
@@ -197,7 +193,7 @@ int main(int argc, char **argv, char **envp)
 					if(next_sync > sim_time){exit_routine();}
 					SetGT(next_sync);
 					cout << "\r" << "t = " << next_sync;
-					FlushViewOfFile(bp, mem_size);
+					FlushViewOfFile(pt_sh_buff, mem_size);
 					//will break
 				}
 			ReleaseMutex(h_mutex);

@@ -1,1 +1,0 @@
-g++ -std=c++11 -I ./boost_1_76_0/ "isim_mutex _ini.cpp" -o isim.exe

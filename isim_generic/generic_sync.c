@@ -29,7 +29,7 @@ DWORD wait_result;
 
 
 static double next_stop = 0.0;//next stop to sync with other processes
-static T_ISIM_ALL_SIGNALS * isim_pt;//pointer to the shared memory 
+static volatile T_ISIM_ALL_SIGNALS * isim_pt;//pointer to the shared memory 
 
 static double W;
 static double R;
@@ -53,7 +53,7 @@ void isim_init(void){
 			 GetLastError());
 	}
 	 pt_sh_buff = (LPTSTR) MapViewOfFile(h_map_file, // handle to map object
-		   FILE_MAP_ALL_ACCESS,//FILE_MAP_READ/*FILE_MAP_ALL_ACCESS*/,  // read/write permission
+		   FILE_MAP_ALL_ACCESS,  // read/write permission
 		   0,
 		   0,
 		   MAX_BUFF_SIZE);
@@ -72,7 +72,7 @@ void isim_init(void){
 	next_stop = 0.0;
 	wait_result = WaitForSingleObject(h_sh_mutex, INFINITE);
 		//initialize pointer to shared memory
-		isim_pt = (T_ISIM_ALL_SIGNALS *)pt_sh_buff;
+		isim_pt = (volatile T_ISIM_ALL_SIGNALS *)pt_sh_buff;
 	ReleaseMutex(h_sh_mutex);
 }
 
@@ -89,7 +89,7 @@ void isim_sync (void){
 
 			isim_pt->pflags[process_slot].w= 1.0;
 			isim_pt->pflags[process_slot].r= 0.0;
-			FlushViewOfFile(isim_pt, MAX_BUFF_SIZE);
+			FlushViewOfFile(pt_sh_buff, MAX_BUFF_SIZE);
 
 		ReleaseMutex(h_sh_mutex);
 
@@ -105,7 +105,7 @@ void isim_sync (void){
 					shm_to_vars();
 
 					isim_pt->pflags[process_slot].r= 1.0;
-					FlushViewOfFile(isim_pt, MAX_BUFF_SIZE);
+					FlushViewOfFile(pt_sh_buff, MAX_BUFF_SIZE);
 				}
 			ReleaseMutex(h_sh_mutex);
         }
@@ -120,7 +120,7 @@ void isim_sync (void){
 					isim_pt->pflags[process_slot].r= 0.0;
 					//load next stop
 					next_stop = isim_pt->sync.t;
-					FlushViewOfFile(isim_pt, MAX_BUFF_SIZE);
+					FlushViewOfFile(pt_sh_buff, MAX_BUFF_SIZE);
 
 				}
 			ReleaseMutex(h_sh_mutex);
